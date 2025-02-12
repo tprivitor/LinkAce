@@ -2,7 +2,7 @@ FROM php:8.1-fpm
 
 WORKDIR /var/www
 
-# Install required system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     zip unzip git curl libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libpq-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -18,15 +18,18 @@ COPY . .
 # Ensure correct permissions
 RUN chown -R www-data:www-data /var/www
 
-# Set higher PHP memory limit to avoid OOM errors
-RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
+# Debug: Check if composer.json exists before running Composer
+RUN if [ ! -f "composer.json" ]; then echo "Error: composer.json not found!"; exit 1; fi
 
-# Force Composer to install correctly
-RUN composer install --no-dev --optimize-autoloader --no-interaction || \
-    (composer clear-cache && composer install --no-dev --optimize-autoloader --no-interaction)
+# Debug: Show current PHP version and installed extensions
+RUN php -v && php -m
 
-# Ensure autoload file exists
-RUN test -f vendor/autoload.php || exit 1
+# Force Composer to install dependencies with detailed logging
+RUN composer install --no-dev --optimize-autoloader --no-interaction --verbose || \
+    (composer clear-cache && composer install --no-dev --optimize-autoloader --no-interaction --verbose)
+
+# Debug: List installed dependencies
+RUN ls -lah vendor/ && test -f vendor/autoload.php || exit 1
 
 # Generate Laravel application key
 RUN php artisan key:generate || true
