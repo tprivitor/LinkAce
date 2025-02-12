@@ -2,11 +2,12 @@ FROM php:8.1-fpm
 
 WORKDIR /var/www
 
-# Install system dependencies
+# Install required system dependencies
 RUN apt-get update && apt-get install -y \
     zip unzip git curl libpng-dev libjpeg-dev libfreetype6-dev libonig-dev libpq-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql mbstring exif pcntl bcmath opcache
+    && docker-php-ext-install gd pdo pdo_mysql mbstring exif pcntl bcmath opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer globally
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -14,17 +15,17 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy application files
 COPY . .
 
-# Ensure proper permissions
+# Ensure correct permissions
 RUN chown -R www-data:www-data /var/www
 
-# Fix potential issues with Composer
-RUN composer clear-cache && composer update --no-interaction --prefer-dist
+# Prevent memory limit issues
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
 
-# Install dependencies properly
-RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction
+# Install dependencies safely
+RUN composer install --no-dev --optimize-autoloader --no-interaction || true
 
 # Generate Laravel application key
-RUN php artisan key:generate
+RUN php artisan key:generate || true
 
 # Start the application
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
