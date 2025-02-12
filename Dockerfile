@@ -18,11 +18,15 @@ COPY . .
 # Ensure correct permissions
 RUN chown -R www-data:www-data /var/www
 
-# Prevent memory limit issues
+# Set higher PHP memory limit to avoid OOM errors
 RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
 
-# Install dependencies safely
-RUN composer install --no-dev --optimize-autoloader --no-interaction || true
+# Force Composer to install correctly
+RUN composer install --no-dev --optimize-autoloader --no-interaction || \
+    (composer clear-cache && composer install --no-dev --optimize-autoloader --no-interaction)
+
+# Ensure autoload file exists
+RUN test -f vendor/autoload.php || exit 1
 
 # Generate Laravel application key
 RUN php artisan key:generate || true
